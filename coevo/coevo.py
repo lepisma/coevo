@@ -14,6 +14,23 @@ class CoEvoMO(object):
     """
 
     def __init__(self, n_pop, n_var, fitness_functions, lb=0, ub=1):
+        """
+        Initialize problem
+
+        Parameters
+        ----------
+        n_pop : int
+            Population size
+        n_var : int
+            Number of variables in problem
+        fitness_functions : list of functions
+            Objective functions (to maximize)
+        lb : number or list
+            Lower bound for variables
+        ub : number or list
+            Upper bound for variables
+        """
+
         self.n_pop = n_pop
         self.n_var = n_var
         self.n_obj = len(fitness_functions)
