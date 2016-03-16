@@ -13,12 +13,12 @@ def roulette(fitness_values, return_size, elite=0):
     """
 
     sorted_indices = np.argsort(fitness_values)
-    sorted = np.sort(fitness_values).cumsum()
-    sorted /= np.max(sorted)
+    c_sorted = np.sort(fitness_values).cumsum()
+    c_sorted /= np.max(c_sorted)
 
-    sampled = [sorted_indices[np.sum(np.random.rand() > sorted)] for _ in \
+    sampled = [sorted_indices[np.sum(np.random.rand() > c_sorted)] for _ in \
                xrange(return_size)]
-    elites = [sorted_indices[::-1][:elite]]
+    elites = sorted_indices[::-1][:elite].tolist()
 
     return sampled, elites
 
@@ -34,6 +34,6 @@ def tournament(fitness_values, return_size, tournament_size, elite=0):
         sampled.append(items[np.argmax(fitness_values[items])])
 
     sorted_indices = np.argsort(fitness_values)
-    elites = [sorted_indices[::-1][:elite]]
+    elites = sorted_indices[::-1][:elite].tolist()
 
     return sampled, elites

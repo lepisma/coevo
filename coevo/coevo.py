@@ -37,9 +37,9 @@ class CoEvoMO(object):
         self.lb = lb
         self.ub = ub
 
-        if not((type(self.lb) == list) or (type(self.lb) == np.ndarray)):
+        if not ((type(self.lb) == list) or (type(self.lb) == np.ndarray)):
             self.lb = np.ones(self.n_var) * self.lb
-        if not((type(self.ub) == list) or (type(self.ub) == np.ndarray)):
+        if not ((type(self.ub) == list) or (type(self.ub) == np.ndarray)):
             self.ub = np.ones(self.n_var) * self.ub
 
         # Generate population
@@ -51,22 +51,21 @@ class CoEvoMO(object):
         self.fitness = np.full((self.n_pop, self.n_obj), np.NaN)
 
         # Generate initial cost
-        self.get_cost(self.fitness_functions)
+        self.get_cost(self.fitness_functions, xrange(self.n_pop))
 
-
-    def get_cost(self, fitness_functions):
+    def get_cost(self, fitness_functions, update_indices):
         """
         Calculate fitness
         """
 
-        # Calculate fitness for not NaN fitness
-        for idx in xrange(self.n_pop):
-            if np.isnan(self.fitness[idx]).any():
-                self.fitness[idx] = np.array([f(self.population[idx]) for \
-                                              f in fitness_functions])
+        # Calculate fitness for not given indices
+        for idx in update_indices:
+            self.fitness[idx] = np.array([f(self.population[idx]) for \
+                                          f in fitness_functions])
 
-
-    def evolve(self, cross_rate, mut_rate,
+    def evolve(self,
+               cross_rate,
+               mut_rate,
                cross_fraction=1.0,
                elite=0,
                fitness_functions=None):
@@ -75,50 +74,61 @@ class CoEvoMO(object):
         """
 
         # Crossover parents per objective
-        n_crossover = int(self.n_pop * cross_fraction / self.n_obj)
+        n_cross_obj = int(self.n_pop * cross_fraction / self.n_obj)
 
-        # Sample indices for each cost functions
+        update_indices = []
+
+        # Sampled indices for each all objectives
         indices = []
         elites = []
 
         for i in xrange(self.n_obj):
-            ps, els = selection.roulette(self.fitness[:, i], n_crossover)
+            ps, els = selection.roulette(self.fitness[:, i],
+                                         n_cross_obj,
+                                         elite=elite)
             indices += ps
             elites += els
 
         np.random.shuffle(indices)
+        # Unique elites
+        elites = list(set(elites))
 
+        # Make number of parents even
         if len(indices) % 2 != 0:
             indices.pop()
 
         # Next generation
         new_population = np.copy(self.population)
 
+        cross_count = 0
         # Do crossover
         for idx1, idx2 in zip(indices[::2], indices[1::2]):
             if np.random.rand() < cross_rate:
-                kids = operators.cross_blend(self.population[idx1],
-                                             self.population[idx2],
-                                             0.5, self.lb, self.ub)
-                new_population[idx1] = kids[0]
-                new_population[idx2] = kids[1]
+                kid1, kid2 = operators.cross_blend(self.population[idx1],
+                                                   self.population[idx2], 0.5,
+                                                   self.lb, self.ub)
+                new_population[idx1] = kid1
+                new_population[idx2] = kid2
+                update_indices += [idx1, idx2]
 
-                # Clear fitness
-                self.fitness[idx1, :] = np.NaN
-                self.fitness[idx2, :] = np.NaN
+                cross_count += 1
 
+        mut_count = 0
         # Mutate
         for idx in xrange(self.n_pop):
             if np.random.rand() < mut_rate:
-                new_population[idx] = operators.mutate_uniform(self.population[idx],
-                                                               self.lb,
-                                                               self.ub)
+                new_population[idx] = operators.mutate_uniform(
+                    self.population[idx], self.lb, self.ub)
 
-                # Clear fitness
-                self.fitness[idx, :] = np.NaN
+                update_indices += [idx]
 
-        # Save elites
+                mut_count += 1
+
+                # Restore elites
         new_population[elites] = self.population[elites]
+        update_indices = set(update_indices)
+        [update_indices.remove(el) for el in elites if el in update_indices]
+        update_indices = list(update_indices)
 
         # Copy over generation
         self.population = new_population
@@ -126,6 +136,6 @@ class CoEvoMO(object):
         # Get fitness
         if fitness_functions is not None:
             # Allow new functions too
-            self.get_cost(fitness_functions)
+            self.get_cost(fitness_functions, update_indices)
         else:
-            self.get_cost(self.fitness_functions)
+            self.get_cost(self.fitness_functions, update_indices)
